@@ -21,12 +21,15 @@ library(ggplot2)
 
 ### Keeping track of my software environment
 ```{r environment}
+setwd("/Users/Terri/Documents/RepData_PeerAssessment2/")
 sessionInfo()
 ```
 
 ### Teach computer to do same thing using R
 ```{r teach download}
-download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", "/Users/Terri/Documents/RepData_PeerAssessment2/StormData.csv.bz2")
+if(!file.exists("StormData.csv.bz2")){
+  download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",      "/Users/Terri/Documents/RepData_PeerAssessment2/StormData.csv.bz2")
+}
 ```
 
 ## Loading and preprocessing the data
