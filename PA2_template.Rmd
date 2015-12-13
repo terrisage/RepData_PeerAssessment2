@@ -1,6 +1,11 @@
 # Reproducible Research: Peer Assessment 2
+#
+#  Title: Research Study on Impact of Storms and Severe Weather Events on Public Health and Economy
+#
+## Synopsis
+## Storms and other severe weather events may cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern. This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. There are two research questions address by this study. First, across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to the population health (i.e., highest mortality rates). Second, across the United States, which types of events have caused the greatest economic consequences (i.e., highest estimated property damage). Some documentation of the data may be found https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf and https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf.
 
-## Title: Research Study on Impact of Storms and Severe Weather Events on Public Health and Economy
+
 
 ## Basic Global Settings
 ```{r settings}
