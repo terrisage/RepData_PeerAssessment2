@@ -1,55 +1,162 @@
 # Reproducible Research: Peer Assessment 2
 #
-#  Title: Research Study on Impact of Storms and Severe Weather Events on Public Health and Economy
+## 1. Title: Research Study on Impact of Storms and Severe Weather Events on Public Health and Economy
 #
-## Synopsis
-## Storms and other severe weather events may cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern. This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. There are two research questions address by this study. First, across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to the population health (i.e., highest mortality rates). Second, across the United States, which types of events have caused the greatest economic consequences (i.e., highest estimated property damage). Some documentation of the data may be found https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf and https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf.
+## 2. Synopsis
+## In this research study, we have analyzed the impact of storms and other severe weather events on public health and the economy using data from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database with events collected from 1950 - 2011. There are two research questions addressed by this study: 1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to the population health (i.e., highest mortality rates); 2. Across the United States, which types of events have caused the greatest economic consequences (i.e., highest estimated property damage). The top 3 severe weather events in the U.S. from 1991 - 2011 causing injuries are Tornado, Flood, and Excessive Heat. The top 3 severe weather events in the U.S. from 1991 - 2011 causing fatalities are Excessive Heat, Tornado, and Flash Flood. The top 3 severe weather events in the U.S. from 1991 - 2011 causing crop damage as a measure of economic consequence are Drought, Flooding, and River Flooding. The top 3 severe weather events in the U.S. from 1991 - 2011 causing property damage are Tornados, Flash Floods, and TSTM Wind.
+#
+#
 
+## 3. Data Processing
+## This section provides details on the data processing performed on the NOAA dataset.
 
-
-## Basic Global Settings
+### 3.1 Basic Global Settings
 ```{r settings}
 echo = TRUE          # Always make code visible
 options(scipen = 1)  # Turn off scientific notations for numbers
 ```
 
-## Plotting System
+### 3.2 Plotting System and Other Libraries
 ```{r plotting systems, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
-library(ggplot2)
+library(ggplot2)    # for plots 
+library(R.utils)    # for bunzip2
+library(lubridate)  # for date/time conversions
+library(grid)       # for grid graphics package
+library(plyr)       # for split-apply paradigm
+library(gridExtra)  # for extra functions of grid such as arrange
 ```
 
 
-### Keeping track of my software environment
+### 3.3 Keeping track of my software environment
 ```{r environment}
-setwd("/Users/Terri/Documents/RepData_PeerAssessment2/")
+setwd("~/Documents/RepData_PeerAssessment2/")
 sessionInfo()
 ```
 
-### Teach computer to do same thing using R
+### 3.4 Perform download of file using reproducible research best practice of no manual intervention and computer performing all tasks
 ```{r teach download}
-if(!file.exists("StormData.csv.bz2")){
-  download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",      "/Users/Terri/Documents/RepData_PeerAssessment2/StormData.csv.bz2")
+if(!file.exists("~/Downloads/StormData.csv.bz2")){
+  download.file(url="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+                destfile="~/Downloads/StormData.csv.bz2")
 }
 ```
 
-## Loading and preprocessing the data
-### 1. Load the data (i.e. read.csv())
-```{r load data, results='markup', warning=TRUE, message=TRUE}
-if(!file.exists("StormData.csv")){
-    unzip("StormData.csv.bz2")
+### 3.5 Loading and preprocessing the data as this is a very large dataset, only read it in if it does not exist in environment.
+```{r load data, results='markup', warning=TRUE, message=TRUE, cache=TRUE}
+if(!file.exists("~/Downloads/StormData.csv")){
+    bunzip2(filename="~/Downloads/StormData.csv.bz2", destname="~/Downloads/StormData.csv", overwrite=TRUE, remove=FALSE)
 }
-stormData <- read.csv("StormData.csv")
+if (!"stormData" %in% ls()){
+    stormData <- read.csv("~/Downloads/StormData.csv")
+}
+
 ```
-### 2. Process/transform the data (if necessary) into a format suitable for the analysis
+* There are `r dim(stormData)[1]` rows and `r dim(stormData)[2]` columns in the dataset.
+
+### 3.6. Process/transform the data (if necessary) into a format suitable for the analysis. 
+#### 3.6.1 Let's remove irrelevant columns and rows. Events in the dataset were collected from 1950 to 2011. 
+#### We know more data was collected in the later years looking at the histogram so lets look at 
+#### the last 20 years of the data, 1991 to 2011. 
 ```{r process}
-# No processing needed
+dim(stormData)
+
+smallData <- stormData[, c("BGN_DATE", "EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")]
+smallData$YEAR <- as.numeric(year(mdy_hms(smallData[,1])))
+hist(smallData$YEAR, main="Histogram of Event Data in US\n from 1950-2011\n", xlab="Year", ylab="Frequency")
+smallData <- smallData[smallData$YEAR >= 1991, ]
+#
+# Let's explore the data first to understand transformations to be made
+unique(smallData$YEAR)
+unique(smallData$PROPDMGEXP)
+unique(smallData$CROPDMGEXP)
+```
+
+#### 3.6.2 Transformation:Set property and crop damage variables to a numeric value based on exponent. Replace invalid expressions with a numeric value of 0.Both PROPDMGEXP and CROPDMGEXP columns contain a  multiplier for each observation for example where we have Hundred (H), Thousand (K), Million (M) and Billion (B).
+
+```{r transform}
+# Transformation function 
+transform <- function (fData = smallData, f1, fexp) {
+fData[(fData[,fexp] == "+"), f1] <- 0
+fData[(fData[,fexp] == "-"), f1] <- 0
+fData[(fData[,fexp] == "?"), f1] <- 0
+
+fData[(fData[,fexp] ==  ""),  f1] <- fData[(fData[,fexp] ==  ""),  f1]  * 1e+00
+fData[(fData[,fexp] == "0"),  f1] <- fData[(fData[,fexp] == "0"),  f1]  * 1e+00
+fData[(fData[,fexp] == "1"),  f1] <- fData[(fData[,fexp] == "1"),  f1]  * 1e+01
+fData[(fData[,fexp] == "2"),  f1] <- fData[(fData[,fexp] == "2"),  f1]  * 1e+02
+fData[(fData[,fexp] == "3"),  f1] <- fData[(fData[,fexp] == "3"),  f1]  * 1e+03
+fData[(fData[,fexp] == "4"),  f1] <- fData[(fData[,fexp] == "4"),  f1]  * 1e+04
+fData[(fData[,fexp] == "5"),  f1] <- fData[(fData[,fexp] == "5"),  f1]  * 1e+05
+fData[(fData[,fexp] == "6"),  f1] <- fData[(fData[,fexp] == "6"),  f1]  * 1e+06
+fData[(fData[,fexp] == "7"),  f1] <- fData[(fData[,fexp] == "7"),  f1]  * 1e+07
+fData[(fData[,fexp] == "8"),  f1] <- fData[(fData[,fexp] == "8"),  f1]  * 1e+08
+fData[(fData[,fexp] == "9"),  f1] <- fData[(fData[,fexp] == "9"),  f1]  * 1e+09
+
+fData[(toupper(fData[,fexp]) == "H"),  f1] <- fData[(toupper(fData[,fexp]) == "H"),  f1]  * 1e+02
+fData[(toupper(fData[,fexp]) == "K"),  f1] <- fData[(toupper(fData[,fexp]) == "K"),  f1]  * 1e+03
+fData[(toupper(fData[,fexp]) == "M"),  f1] <- fData[(toupper(fData[,fexp]) == "M"),  f1]  * 1e+06
+fData[(toupper(fData[,fexp]) == "B"),  f1] <- fData[(toupper(fData[,fexp]) == "B"),  f1]  * 1e+09
+return (fData)
+}
+dataSet <-transform(smallData, which(colnames(smallData) == "PROPDMG"), which(colnames(smallData) == "PROPDMGEXP"))
+dataSet <-transform(smallData, which(colnames(smallData) == "CROPDMG"), which(colnames(smallData) == "CROPDMGEXP"))
+
+```
+
+* After processing, there are `r dim(smallData)[1]` rows and `r dim(smallData)[2]` columns in the dataset.
+
+## 4. Results
+### 4.1 Summarize the data across the event types and store the top 5 values
+```{r summations}
+sumFatalities  <- head(arrange(aggregate(FATALITIES ~ EVTYPE, dataSet, sum), desc(FATALITIES)),n=10)
+sumInjuries    <- head(arrange(aggregate(INJURIES ~ EVTYPE,   dataSet, sum), desc(INJURIES)),  n=10)
+sumPropDamage  <- head(arrange(aggregate(PROPDMG ~ EVTYPE, dataSet, sum),    desc(PROPDMG)),   n=10)
+sumCropDamage  <- head(arrange(aggregate(CROPDMG ~ EVTYPE, dataSet, sum),    desc(CROPDMG)),   n=10)
+
+head(sumFatalities)
+head(sumInjuries)
+head(sumPropDamage)
+head(sumCropDamage)
+```
+
+### 4.2 Results of the data analysis to addresses the following questions:
+
+#### 4.2.1 Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health? The results are: 
+```{r question1}
+gg1 <- ggplot(sumInjuries, aes(EVTYPE, INJURIES)) + 
+  geom_bar(stat = "identity", width = 0.5) + 
+  scale_y_continuous("Number of Injuries") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  labs(title = "Severe Weather Events\n from 1991-2011\n Across the U.S.\n Causing Injuries\n ", x = "Severe Weather Type")
+
+gg2 <- ggplot(sumFatalities, aes(EVTYPE, FATALITIES)) + 
+  geom_bar(stat = "identity", width = 0.5) + 
+  scale_y_continuous("Number of Fatalities") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  labs(title = "Severe Weather Events\n from 1991-2011\n Across the U.S.\n Causing Fatalities\n ", x = "Severe Weather Type")
+
+grid.arrange (gg1, gg2, ncol=2, padding=3)
 ```
 
 
-## Your data analysis must address the following questions:
+#### The top 3 severe weather events in the U.S. from 1991 - 2011 causing injuries are Tornado, Flood, and Excessive Heat. The top 3 severe weather events in the U.S. from 1991 - 2011 causing fatalities are Excessive Heat, Tornado, and Flash Flood. 
 
-### 1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+#### 4.2.2 Across the United States, which types of events have the greatest economic consequences? The results are: 
+```{r question2}
 
-## 2. Across the United States, which types of events have the greatest economic consequences?
+gg1 <- ggplot(sumCropDamage, aes(EVTYPE, CROPDMG)) + 
+  geom_bar(stat = "identity", width = 0.5) + 
+  scale_y_continuous("Crop Damage in US Dollars") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  labs(title = "Severe Weather Events\n from 1991-2011\n Across the U.S.\n Impacting Crops\n ", x = "Severe Weather Type")
 
-Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
+gg2 <- ggplot(sumPropDamage, aes(EVTYPE, PROPDMG)) + 
+  geom_bar(stat = "identity", width = 0.5) + 
+  scale_y_continuous("Property Damage in US Dollars") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  labs(title = "Severe Weather Events\n from 1991-2011\n Across the U.S.\n Impacting Property\n ", x = "Severe Weather Type")
+
+grid.arrange (gg1, gg2, ncol=2, padding=3)
+```
+
+#### The top 3 severe weather events in the U.S. from 1991 - 2011 causing crop damage as a measure of economic consequence are Drought, Flooding, and River Flooding. The top 3 severe weather events in the U.S. from 1991 - 2011 causing property damage are Tornados, Flash Floods, and TSTM Wind.
