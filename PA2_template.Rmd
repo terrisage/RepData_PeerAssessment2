@@ -3,7 +3,7 @@
 ## 1. Title: Research Study on Impact of Storms and Severe Weather Events on Public Health and Economy
 #
 ## 2. Synopsis
-## In this research study, we have analyzed the impact of storms and other severe weather events on public health and the economy using data from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database with events collected from 1950 - 2011. There are two research questions addressed by this study: 1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to the population health (i.e., highest mortality rates); 2. Across the United States, which types of events have caused the greatest economic consequences (i.e., highest estimated property damage). The top 3 severe weather events in the U.S. from 1991 - 2011 causing injuries are Tornado, Flood, and Excessive Heat. The top 3 severe weather events in the U.S. from 1991 - 2011 causing fatalities are Excessive Heat, Tornado, and Flash Flood. The top 3 severe weather events in the U.S. from 1991 - 2011 causing crop damage as a measure of economic consequence are Drought, Flooding, and River Flooding. The top 3 severe weather events in the U.S. from 1991 - 2011 causing property damage are Tornados, Flash Floods, and TSTM Wind.
+## In this research study, we have analyzed the impact of storms and other severe weather events on public health and the economy using data from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database with events collected from 1950 - 2011. There are two research questions addressed by this study: 1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to the population health (i.e., highest mortality rates); 2. Across the United States, which types of events have caused the greatest economic consequences (i.e., highest estimated property damage). The top 3 severe weather events in the U.S. from 1991 - 2011 causing injuries are Tornado, Heavy Wind Storm, and Flood. The top 3 severe weather events in the U.S. from 1991 - 2011 causing fatalities are Heavy Wind Storm, Excessive Heat, and Tornado. The top 3 severe weather events in the U.S. from 1991 - 2011 causing crop damage as a measure of economic consequence are Hot Weather, Heavy Wind Storm, and Flood. The top 3 severe weather events in the U.S. from 1991 - 2011 causing property damage are Heavy Wind Storm, Flood, and Tornado.
 #
 #
 
@@ -67,13 +67,14 @@ smallData <- smallData[smallData$YEAR >= 1991, ]
 #
 # Let's explore the data first to understand transformations to be made
 unique(smallData$YEAR)
+unique(smallData$EVTYPE)
 unique(smallData$PROPDMGEXP)
 unique(smallData$CROPDMGEXP)
 ```
 
-#### 3.6.2 Transformation:Set property and crop damage variables to a numeric value based on exponent. Replace invalid expressions with a numeric value of 0.Both PROPDMGEXP and CROPDMGEXP columns contain a  multiplier for each observation for example where we have Hundred (H), Thousand (K), Million (M) and Billion (B).
+#### 3.6.2.1 Transformation 1:Set property and crop damage variables to a numeric value based on exponent. Replace invalid expressions with a numeric value of 0.Both PROPDMGEXP and CROPDMGEXP columns contain a  multiplier for each observation for example where we have Hundred (H), Thousand (K), Million (M) and Billion (B).
 
-```{r transform}
+```{r transform1}
 # Transformation function 
 transform <- function (fData = smallData, f1, fexp) {
 fData[(fData[,fexp] == "+"), f1] <- 0
@@ -103,6 +104,36 @@ dataSet <-transform(smallData, which(colnames(smallData) == "CROPDMG"), which(co
 
 ```
 
+#### 3.6.2.1 Transformation 2: Group together Event Types (EVTYPE) using grep and ignoring case statements as there are too many  different event types. 
+
+```{r transform2}
+# EVTYPE Transformation function 
+dataSet$EVTYPE <- as.character(dataSet$EVTYPE)
+dataSet$EVTYPE[grepl("tsunami|astronomical|rogue|hazardous|marine|current|tide",
+                     dataSet$EVTYPE,ignore.case = TRUE)] <- "TSUNAMI/HIGH CURRENT"
+dataSet$EVTYPE[grepl("thunderstorm|lightning|gusty thunderstorm",
+                     dataSet$EVTYPE,ignore.case = TRUE)] <- "THUNDERSTORM/LIGHTNING"
+dataSet$EVTYPE[grepl("flood", 
+                     dataSet$EVTYPE,ignore.case = TRUE)] <- "FLOOD"
+dataSet$EVTYPE[grepl("slide|erosion", 
+                     dataSet$EVTYPE,ignore.case = TRUE)] <- "LANDSLIDE/EROSION"
+dataSet$EVTYPE[grepl("heavy rain | hail|precipitation|burst", 
+                     dataSet$EVTYPE,ignore.case = TRUE)] <- "HEAVYRAIN/HAILSTORM"
+dataSet$EVTYPE[grepl("freeze|cold|winter weather mix|snow|chill|patchy ice", 
+                     dataSet$EVTYPE,ignore.case = TRUE)] <- "COLD WEATHER"
+dataSet$EVTYPE[grepl("wind |storm|hurricane|typhoon|tstm wind|high wind", 
+                     dataSet$EVTYPE,ignore.case = TRUE)] <- "HEAVY WIND STORM"
+dataSet$EVTYPE[grepl("fire|smoke|dense smoke", 
+                     dataSet$EVTYPE,ignore.case = TRUE)] <- "FIRE/SMOKE"
+dataSet$EVTYPE[grepl("hot|drought|temperature record|record temperature|record high|dry",
+                     dataSet$EVTYPE,ignore.case = TRUE)] <- "HOT WEATHER"
+dataSet$EVTYPE[grepl("tornado", dataSet$EVTYPE,ignore.case = TRUE)] <- "TORNADO"
+
+```
+
+
+
+
 * After processing, there are `r dim(smallData)[1]` rows and `r dim(smallData)[2]` columns in the dataset.
 
 ## 4. Results
@@ -121,7 +152,7 @@ head(sumCropDamage)
 
 ### 4.2 Results of the data analysis to addresses the following questions:
 
-#### 4.2.1 Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health? The results are: 
+#### 4.2.1 Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health? The results in terms of injuries and fatalities are: 
 ```{r question1}
 gg1 <- ggplot(sumInjuries, aes(EVTYPE, INJURIES)) + 
   geom_bar(stat = "identity", width = 0.5) + 
@@ -139,9 +170,10 @@ grid.arrange (gg1, gg2, ncol=2, padding=3)
 ```
 
 
-#### The top 3 severe weather events in the U.S. from 1991 - 2011 causing injuries are Tornado, Flood, and Excessive Heat. The top 3 severe weather events in the U.S. from 1991 - 2011 causing fatalities are Excessive Heat, Tornado, and Flash Flood. 
+#### The top 3 severe weather events in the U.S. from 1991 - 2011 causing injuries are Tornado, Heavy Wind Storm, and Flood. The top 3 severe weather events in the U.S. from 1991 - 2011 causing fatalities are Heavy Wind Storm, Excessive Heat, and Tornado. 
 
-#### 4.2.2 Across the United States, which types of events have the greatest economic consequences? The results are: 
+
+#### 4.2.2 Across the United States, which types of events have the greatest economic consequences? The results as measured by crop and property damage in terms of US dollars are: 
 ```{r question2}
 
 gg1 <- ggplot(sumCropDamage, aes(EVTYPE, CROPDMG)) + 
@@ -159,4 +191,4 @@ gg2 <- ggplot(sumPropDamage, aes(EVTYPE, PROPDMG)) +
 grid.arrange (gg1, gg2, ncol=2, padding=3)
 ```
 
-#### The top 3 severe weather events in the U.S. from 1991 - 2011 causing crop damage as a measure of economic consequence are Drought, Flooding, and River Flooding. The top 3 severe weather events in the U.S. from 1991 - 2011 causing property damage are Tornados, Flash Floods, and TSTM Wind.
+#### The top 3 severe weather events in the U.S. from 1991 - 2011 causing crop damage as a measure of economic consequence are Hot Weather, Heavy Wind Storm, and Flood. The top 3 severe weather events in the U.S. from 1991 - 2011 causing property damage are Heavy Wind Storm, Flood, and Tornado.
